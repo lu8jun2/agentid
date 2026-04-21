@@ -8,15 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]"
-
-# Copy source
+# Copy source first (needed for editable install)
 COPY agentid/ ./agentid/
 COPY sdk/ ./sdk/
 COPY integrations/ ./integrations/
 COPY contracts/ ./contracts/
+
+# Install Python deps
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir -e "."
 
 EXPOSE 8000
 

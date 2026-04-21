@@ -45,7 +45,8 @@ def upgrade() -> None:
     )
     op.create_index("ix_broadcast_sender_created", "broadcast_messages", ["sender_did", "created_at"])
     op.create_index("ix_broadcast_created", "broadcast_messages", ["created_at"])
-    # For recipient_dids GIN index, use PostgreSQL specific syntax
+    # GIN index requires pg_trgm extension
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     op.execute("CREATE INDEX ix_broadcast_recipient ON broadcast_messages USING gin(recipient_dids)")
 
 
