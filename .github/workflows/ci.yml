@@ -1,1 +1,83 @@
+name: CI
 
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agentid
+          POSTGRES_PASSWORD: agentid
+          POSTGRES_DB: agentid
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://agentid:agentid@localhost:5432/agentid
+        run: |
+          alembic upgrade head
+          pytest tests/integration/ -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version
+        id: vars
+        run: echo "VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = \"//;s/\"//')" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+          tags: |
+            agentidprotocol/agentid:${{ steps.vars.outputs.VERSION }}
+            agentidprotocol/agentid:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Quick smoke test
+        run: docker run --rm agentidprotocol/agentid:${{ steps.vars.outputs.VERSION }} python -c "from agentid.api.app import app; print('OK')"
