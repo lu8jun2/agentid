@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentid
+      POSTGRES_PASSWORD: agentid
+      POSTGRES_DB: agentid
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentid"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentid:agentid@db:5432/agentid
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn agentid.api.app:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentid:agentid@db:5432/agentid
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app
+
+  worker:
+    build: .
+    command: >
+      sh -c "alembic upgrade head &&
+             python -c \"
+               import threading
+               import time
+               from agentid.worker.scheduler import start_scheduler as start_score_scheduler
+               from agentid.worker.task_tree_worker import start_scheduler as start_tree_scheduler
+               t1 = threading.Thread(target=start_score_scheduler, daemon=True)
+               t2 = threading.Thread(target=start_tree_scheduler, daemon=True)
+               t1.start(); t2.start()
+               time.sleep(float('inf'))
+             \""
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentid:agentid@db:5432/agentid
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
