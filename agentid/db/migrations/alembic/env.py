@@ -39,8 +39,7 @@ async def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
-    with context.begin_migrations():
-        context.run_migrations()
+    context.run_migrations()
 
 
 async def run_async_migrations() -> None:
