@@ -1,7 +1,8 @@
 """Friend relationship and broadcast message models."""
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, JSON, Float, Integer, Boolean, UniqueConstraint, Index
+from sqlalchemy import String, DateTime, Float, Integer, Boolean, UniqueConstraint, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from agentid.db.session import Base
 
@@ -35,8 +36,8 @@ class BroadcastMessage(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     sender_did: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     msg_type: Mapped[str] = mapped_column(String(32), nullable=False)  # ID_ADVERTISEMENT | PROJECT_BROADCAST
-    content: Mapped[dict] = mapped_column(JSON, nullable=False)
-    recipient_dids: Mapped[list] = mapped_column(JSON, nullable=False)
+    content: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    recipient_dids: Mapped[list] = mapped_column(JSONB, nullable=False)
     hop_count: Mapped[int] = mapped_column(Integer, default=0)
     max_hops: Mapped[int] = mapped_column(Integer, default=1)
     expired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

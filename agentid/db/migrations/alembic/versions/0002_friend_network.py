@@ -5,7 +5,7 @@ Revises: 0001
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "0002"
 down_revision = "0001"
@@ -34,8 +34,8 @@ def upgrade() -> None:
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("sender_did", sa.String(256), nullable=False),
         sa.Column("msg_type", sa.String(32), nullable=False),
-        sa.Column("content", postgresql.JSON, nullable=False),
-        sa.Column("recipient_dids", postgresql.JSON, nullable=False),
+        sa.Column("content", JSONB, nullable=False),
+        sa.Column("recipient_dids", JSONB, nullable=False),
         sa.Column("hop_count", sa.Integer, default=0),
         sa.Column("max_hops", sa.Integer, default=1),
         sa.Column("expired_at", sa.DateTime, nullable=True),
@@ -45,8 +45,6 @@ def upgrade() -> None:
     )
     op.create_index("ix_broadcast_sender_created", "broadcast_messages", ["sender_did", "created_at"])
     op.create_index("ix_broadcast_created", "broadcast_messages", ["created_at"])
-    # GIN index requires pg_trgm extension
-    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     op.execute("CREATE INDEX ix_broadcast_recipient ON broadcast_messages USING gin(recipient_dids)")
 
 
