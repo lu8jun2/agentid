@@ -1,6 +1,6 @@
 """Unit tests for knowledge propagation network core logic."""
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from agentid.core.network import (
     build_info_package, hash_package, verify_package_integrity,
     canonical_package, AdSlot, InfoPackage,
@@ -92,7 +92,7 @@ def test_posting_eligibility_fails_too_many_interactions():
 
 
 def test_posting_eligibility_fails_cooldown():
-    recent = datetime.utcnow() - timedelta(hours=2)
+    recent = datetime.now(timezone.utc) - timedelta(hours=2)
     result = check_posting_eligibility(
         poster_did="did:a", acceptor_did="did:b",
         reward_amount=10.0, reward_currency="USD",

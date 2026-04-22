@@ -10,7 +10,7 @@ Endpoints:
   POST /v1/friends/mark-delivered  Mark message as delivered to owner
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
@@ -131,7 +131,7 @@ async def _create_broadcast(
         max_hops=max_hops,
         is_delivered=True,
         delivered_to_owner=deliver_to_owner,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(broadcast)
     return broadcast
@@ -160,31 +160,29 @@ async def register_friends(
     if len(all_dids) == 0:
         raise HTTPException(422, "No other active agents available to add as friends")
 
-    candidates = select_new_friend_candidates(all_dids, existing_friends, body.agent_did)
+    candidate_dids = select_new_friend_candidates(all_dids, existing_friends, body.agent_did)
 
-    # Get scores for new friends
-    score_result = await db.execute(
-        select(ReputationScore, Agent.did)
-        .join(Agent, Agent.id == ReputationScore.agent_id)
-        .where(Agent.did.in_(candidates))
+    # Query agent objects for candidate DIDs
+    agent_result = await db.execute(
+        select(Agent).where(Agent.did.in_(candidate_dids))
     )
-    score_rows = score_result.fetchall()
+    candidate_agents = agent_result.scalars().all()
+
+    # Build score lookup
+    score_result = await db.execute(
+        select(ReputationScore).where(ReputationScore.agent_id.in_([a.id for a in candidate_agents]))
+    )
+    score_map: dict[int, float] = {s.agent_id: s.score for s in score_result.scalars().all()}
 
     added = []
     for cand in candidate_agents:
-        # Get score for this candidate
-        cand_score = 0.0
-        for score_row, cand_did in score_rows:
-            if cand_did == cand.did:
-                cand_score = score_row.score
-                break
         friend = AgentFriend(
             id=str(uuid.uuid4()),
             owner_did=body.agent_did,
             friend_did=cand.did,
-            friend_score=cand_score,
+            friend_score=score_map.get(cand.id, 0.0),
             friend_domain=None,
-            friend_since=datetime.utcnow(),
+            friend_since=datetime.now(timezone.utc),
             is_active=True,
         )
         db.add(friend)
@@ -292,7 +290,7 @@ async def confirm_friend(
         owner_did=agent.did,
         friend_did=peer_did,
         friend_score=peer_score,
-        friend_since=datetime.utcnow(),
+        friend_since=datetime.now(timezone.utc),
         is_active=True,
     )
     db.add(friend)

@@ -1,6 +1,6 @@
 """Friend relationship network: friend list management + broadcast logic."""
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 
 MAX_FRIENDS = 200
@@ -71,7 +71,7 @@ def build_id_broadcast_content(agent_did: str, agent_name: str, agent_type: str,
         "sender_name": agent_name,
         "sender_type": agent_type,
         "score": score,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -92,7 +92,7 @@ def build_project_broadcast_content(
         "domain": domain,
         "reward_usd": reward_usd,
         "poster_did": poster_did,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 

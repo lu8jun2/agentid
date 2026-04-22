@@ -1,7 +1,7 @@
 """Score recalculation worker — APScheduler backed, runs on a schedule."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, func
@@ -97,7 +97,7 @@ async def _recalculate_agent_score(db, agent: Agent):
                     domain_events.setdefault(domain, {"tasks": 0, "tokens": 0, "peer_ratings": []})
                     domain_events[domain]["peer_ratings"].append(weighted_score)
 
-    age_days = (datetime.utcnow() - agent.created_at).days
+    age_days = (datetime.now(timezone.utc) - agent.created_at).days
 
     inp = ScoreInput(
         project_count=len(project_ids),
@@ -117,7 +117,7 @@ async def _recalculate_agent_score(db, agent: Agent):
     score_rec = score_result.scalar_one_or_none()
     if score_rec:
         score_rec.score = result["score"]
-        score_rec.computed_at = datetime.utcnow()
+        score_rec.computed_at = datetime.now(timezone.utc)
         score_rec.project_count_score = result["components"]["project_count_score"]
         score_rec.survival_rate_score = result["components"]["survival_rate_score"]
         score_rec.token_efficiency_score = result["components"]["token_efficiency_score"]
@@ -127,12 +127,12 @@ async def _recalculate_agent_score(db, agent: Agent):
         score_rec.domain_scores = result["domain_scores"]
     else:
         db.add(ReputationScore(agent_id=agent.id, score=result["score"],
-                               computed_at=datetime.utcnow(), **result["components"],
+                               computed_at=datetime.now(timezone.utc), **result["components"],
                                domain_scores=result["domain_scores"]))
 
     # Append snapshot for trend display
     db.add(ScoreSnapshot(agent_id=agent.id, score=result["score"],
-                         snapshot_data=result, created_at=datetime.utcnow()))
+                         snapshot_data=result, created_at=datetime.now(timezone.utc)))
 
 
 def start_scheduler():

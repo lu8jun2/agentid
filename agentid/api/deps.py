@@ -1,7 +1,7 @@
 """Shared dependencies for FastAPI routes."""
 import hashlib
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import Header, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -35,11 +35,11 @@ async def get_api_key(
     api_key = result.scalar_one_or_none()
     if not api_key:
         raise HTTPException(401, "Invalid or revoked API key")
-    if api_key.expires_at and api_key.expires_at < datetime.utcnow():
+    if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
         raise HTTPException(401, "API key expired")
 
     # Update last_used_at
-    api_key.last_used_at = datetime.utcnow()
+    api_key.last_used_at = datetime.now(timezone.utc)
     await db.commit()
     return api_key
 

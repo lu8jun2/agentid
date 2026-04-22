@@ -1,6 +1,6 @@
 """Project registration and participation routes."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -25,7 +25,7 @@ async def create_project(body: CreateProjectRequest, db: AsyncSession = Depends(
         name=body.name,
         description=body.description,
         owner_id=body.owner_id,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(project)
     await db.commit()

@@ -1,6 +1,6 @@
 """Agent registration and resolution routes."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -46,12 +46,12 @@ async def register_agent(body: RegisterAgentRequest, db: AsyncSession = Depends(
         owner_id=body.owner_id,
         public_key=pub_pem,
         metadata_=body.metadata,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(agent)
 
     # Initialize empty score record
-    db.add(ReputationScore(agent_id=agent_id, score=0.0, computed_at=datetime.utcnow()))
+    db.add(ReputationScore(agent_id=agent_id, score=0.0, computed_at=datetime.now(timezone.utc)))
     await db.commit()
 
     # Return private key ONCE — owner must store it securely

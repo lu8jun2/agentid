@@ -1,6 +1,6 @@
 """Task Tree auto-assignment worker — assigns ready nodes to the best available agent."""
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, and_
@@ -126,7 +126,7 @@ async def _check_tree_completion(db, tree: TaskTree):
             tree.status = "completed"
         else:
             tree.status = "partial"
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
         log.info(f"Tree {tree.id[:8]} marked {tree.status} ({completed} ok, {failed} failed, {skipped} skipped)")
 
 

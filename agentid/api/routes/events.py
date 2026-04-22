@@ -1,6 +1,6 @@
 """Event append route — write-only, requires API key + owner signature."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -72,7 +72,7 @@ async def append_event(
     prev_hash = last_event.event_hash if last_event else None
 
     event_id = str(uuid.uuid4())
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
     event_hash = compute_event_hash(event_id, agent.id, body.event_type, body.payload, timestamp, prev_hash)
 
     # Verify owner signature over event_hash

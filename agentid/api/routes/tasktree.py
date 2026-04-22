@@ -1,6 +1,6 @@
 """TaskTree and TaskNode API routes — DAG-based task decomposition."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
@@ -213,7 +213,7 @@ async def create_task_tree(
                 estimated_tokens=n.get("estimated_tokens", 0),
                 estimated_minutes=n.get("estimated_minutes", 0),
                 guidance=n.get("guidance"),
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             id_map[n["title"]] = real_id
             node_map[real_id] = node
@@ -256,7 +256,7 @@ async def create_task_tree(
             status="pending",
             reward_fraction=1.0,
             guidance=None,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         db.add(root)
         nodes = [root]
@@ -274,8 +274,8 @@ async def create_task_tree(
         total_reward=body.total_reward,
         depth=depth,
         node_count=node_count,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(tree)
     await db.commit()
@@ -362,7 +362,7 @@ async def add_node(
         estimated_tokens=body.estimated_tokens,
         estimated_minutes=body.estimated_minutes,
         guidance=body.guidance,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(node)
 
@@ -376,7 +376,7 @@ async def add_node(
     tree = tree_result.scalar_one_or_none()
     if tree:
         tree.node_count += 1
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     return NodeResponse.model_validate(node)
@@ -418,7 +418,7 @@ async def assign_node(
     tree = tree_result.scalar_one_or_none()
     if tree and tree.status == "planning":
         tree.status = "executing"
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     return NodeResponse.model_validate(node)
@@ -442,9 +442,9 @@ async def update_node(
             raise HTTPException(422, f"Invalid status: {body.status}")
         node.status = body.status
         if body.status == "in_progress" and not node.started_at:
-            node.started_at = datetime.utcnow()
+            node.started_at = datetime.now(timezone.utc)
         if body.status in ("completed", "failed", "skipped"):
-            node.completed_at = datetime.utcnow()
+            node.completed_at = datetime.now(timezone.utc)
 
     if body.result_summary is not None:
         node.result_summary = body.result_summary
@@ -455,7 +455,7 @@ async def update_node(
     tree_result = await db.execute(select(TaskTree).where(TaskTree.id == node.tree_id))
     tree = tree_result.scalar_one_or_none()
     if tree:
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     return NodeResponse.model_validate(node)
@@ -482,16 +482,16 @@ async def review_node(
 
     if body.approve:
         node.status = "completed"
-        node.completed_at = datetime.utcnow()
+        node.completed_at = datetime.now(timezone.utc)
     else:
         node.status = "failed"
-        node.completed_at = datetime.utcnow()
+        node.completed_at = datetime.now(timezone.utc)
 
     # Update tree
     tree_result = await db.execute(select(TaskTree).where(TaskTree.id == node.tree_id))
     tree = tree_result.scalar_one_or_none()
     if tree:
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     return NodeResponse.model_validate(node)
@@ -523,7 +523,7 @@ async def retry_node(
     tree = tree_result.scalar_one_or_none()
     if tree:
         tree.status = "executing"
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     return NodeResponse.model_validate(node)
@@ -545,7 +545,7 @@ async def get_progress(tree_id: str, db: AsyncSession = Depends(get_db)):
     # Auto-update tree status based on node states
     if completed == total and total > 0:
         tree.status = "completed"
-        tree.updated_at = datetime.utcnow()
+        tree.updated_at = datetime.now(timezone.utc)
         await db.commit()
 
     return ProgressResponse(

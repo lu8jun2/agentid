@@ -10,7 +10,7 @@ Endpoints:
   GET  /v1/network/jobs/{id}         Get job posting details
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -240,7 +240,7 @@ async def match_job(
     job.acceptor_did = body.acceptor_did
     job.prior_interactions = prior_count
     job.status = "matched"
-    job.matched_at = datetime.utcnow()
+    job.matched_at = datetime.now(timezone.utc)
     await db.commit()
     return {"status": "matched", "prior_interactions": prior_count}
 
@@ -276,7 +276,7 @@ async def complete_job(
 
     job.status = "completed"
     if not job.completed_at:
-        job.completed_at = datetime.utcnow()
+        job.completed_at = datetime.now(timezone.utc)
 
     # Anti-gaming: check all signals before awarding score
     if finalize_posting_score(job.poster_rated, job.acceptor_rated, job.status):

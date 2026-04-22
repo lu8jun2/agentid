@@ -1,5 +1,5 @@
 """API key management — owner authorization."""
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -38,7 +38,7 @@ async def create_api_key(body: CreateKeyRequest, db: AsyncSession = Depends(get_
         name=body.name,
         key_hash=key_hash,
         scopes=body.scopes,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(api_key)
     await db.commit()

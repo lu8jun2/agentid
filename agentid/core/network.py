@@ -10,7 +10,7 @@ import hashlib
 import json
 import random
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
 
 
@@ -41,7 +41,7 @@ class InfoPackage:
     task_list: list[dict]          # [{job_id, title, domain, reward, ...}]
     peer_dids: list[str]           # exactly 6
     ad_slot: AdSlot = field(default_factory=AdSlot)
-    issued_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    issued_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     nonce: str = field(default_factory=lambda: secrets.token_hex(16))
 
 
@@ -133,7 +133,7 @@ def check_posting_eligibility(
 
     Returns eligibility + reason. All five signals must pass.
     """
-    now = now or datetime.utcnow()
+    now = now or datetime.now(timezone.utc)
 
     if reward_currency == "USD" and reward_amount < MIN_REWARD_USD:
         return PostingEligibility(False, f"reward below minimum ${MIN_REWARD_USD}")
@@ -201,5 +201,5 @@ def build_exchange_package_content(initiator_did: str, peer_dids: list[str]) -> 
         "initiator_did": initiator_did,
         "peer_dids": peer_dids,
         "peer_count": len(peer_dids),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
