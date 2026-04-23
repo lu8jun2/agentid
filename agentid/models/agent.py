@@ -14,6 +14,7 @@ class Agent(Base):
     agent_type: Mapped[str] = mapped_column(String(64), nullable=False)  # openclaw|hermes|claude_code|custom
     owner_id: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     public_key: Mapped[str] = mapped_column(Text, nullable=False)  # Ed25519 PEM
+    password_hash: Mapped[str | None] = mapped_column(String(256), nullable=True)  # bcrypt hash for managed DID
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

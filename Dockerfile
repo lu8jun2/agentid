@@ -14,6 +14,7 @@ COPY sdk/ ./sdk/
 COPY integrations/ ./integrations/
 COPY contracts/ ./contracts/
 COPY pyproject.toml README.md ./
+COPY alembic.ini ./
 
 # Install Python deps
 RUN pip install --no-cache-dir -e "."

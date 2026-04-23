@@ -7,6 +7,7 @@ from sqlalchemy import text
 from agentid.api.middleware import OwnerSignatureMiddleware
 from agentid.api.routes import agents, events, scores, auth, projects, network, friends, tasktree
 from agentid.db.session import AsyncSessionLocal
+from agentid.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
     app.add_middleware(OwnerSignatureMiddleware)
 
     app.include_router(agents.router, prefix="/v1/agents", tags=["agents"])

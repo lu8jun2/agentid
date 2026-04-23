@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command: postgres -c max_connections=100 -c shared_buffers=256MB
+
+  migrate:
+    image: lu8jun2/agentid:${VERSION:-latest}
+    working_dir: /app
+    command: sh -c "alembic upgrade head"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    image: lu8jun2/agentid:${VERSION:-latest}
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn agentid.api.app:app --host 0.0.0.0 --port 8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    ports:
+      - "8001:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    image: lu8jun2/agentid:${VERSION:-latest}
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head &&
+             python -c \"
+               import threading, time
+               from agentid.worker.scheduler import start_scheduler as start_score_scheduler, stop_scheduler as stop_score_scheduler
+               from agentid.worker.task_tree_worker import start_scheduler as start_tt_scheduler, stop_scheduler as stop_tt_scheduler
+               start_score_scheduler()
+               start_tt_scheduler(interval_minutes=5)
+               time.sleep(float('inf'))
+             \""
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
